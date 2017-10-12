@@ -671,8 +671,8 @@ void llvm::thinLTOInternalizeModule(Module &TheModule,
 //
 Expected<bool> FunctionImporter::importFunctions(
     Module &DestModule, const FunctionImporter::ImportMapTy &ImportList) {
-  DEBUG(dbgs() << "Starting import for Module "
-               << DestModule.getModuleIdentifier() << "\n");
+  //llvm::outs() << "Starting import for Module "
+  //             << DestModule.getModuleIdentifier() << "\n";
   unsigned ImportedCount = 0;
 
   IRMover Mover(DestModule);
@@ -705,9 +705,9 @@ Expected<bool> FunctionImporter::importFunctions(
         continue;
       auto GUID = F.getGUID();
       auto Import = ImportGUIDs.count(GUID);
-      DEBUG(dbgs() << (Import ? "Is" : "Not") << " importing function " << GUID
-                   << " " << F.getName() << " from "
-                   << SrcModule->getSourceFileName() << "\n");
+      //llvm::outs() << (Import ? "Is" : "Not") << " importing function " << GUID
+      //             << " " << F.getName() << " from "
+      //             << SrcModule->getSourceFileName() << "\n";
       if (Import) {
         if (Error Err = F.materialize())
           return std::move(Err);
@@ -728,9 +728,9 @@ Expected<bool> FunctionImporter::importFunctions(
         continue;
       auto GUID = GV.getGUID();
       auto Import = ImportGUIDs.count(GUID);
-      DEBUG(dbgs() << (Import ? "Is" : "Not") << " importing global " << GUID
-                   << " " << GV.getName() << " from "
-                   << SrcModule->getSourceFileName() << "\n");
+      //llvm::outs() << (Import ? "Is" : "Not") << " importing global " << GUID
+      //             << " " << GV.getName() << " from "
+      //             << SrcModule->getSourceFileName() << "\n";
       if (Import) {
         if (Error Err = GV.materialize())
           return std::move(Err);
@@ -743,9 +743,9 @@ Expected<bool> FunctionImporter::importFunctions(
         continue;
       auto GUID = GA.getGUID();
       assert(!ImportGUIDs.count(GUID) && "Unexpected alias in import list");
-      DEBUG(dbgs() << "Not importing alias " << GUID
-                   << " " << GA.getName() << " from "
-                   << SrcModule->getSourceFileName() << "\n");
+      //llvm::outs() << "Not importing alias " << GUID
+      //             << " " << GA.getName() << " from "
+      //             << SrcModule->getSourceFileName() << "\n";
     }
 #endif
 
@@ -759,7 +759,7 @@ Expected<bool> FunctionImporter::importFunctions(
 
     if (PrintImports) {
       for (const auto *GV : GlobalsToImport)
-        dbgs() << DestModule.getSourceFileName() << ": Import " << GV->getName()
+        llvm::outs() << DestModule.getSourceFileName() << ": Import " << GV->getName()
                << " from " << SrcModule->getSourceFileName() << "\n";
     }
 
@@ -774,8 +774,8 @@ Expected<bool> FunctionImporter::importFunctions(
 
   NumImportedFunctions += ImportedCount;
 
-  DEBUG(dbgs() << "Imported " << ImportedCount << " functions for Module "
-               << DestModule.getModuleIdentifier() << "\n");
+  //llvm::outs() << "Imported " << ImportedCount << " functions for Module "
+  //             << DestModule.getModuleIdentifier() << "\n";
   return ImportedCount;
 }
 

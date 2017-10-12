@@ -220,7 +220,7 @@ static void optimizeModule(Module &TheModule, TargetMachine &TM,
   PMB.LibraryInfo = new TargetLibraryInfoImpl(TM.getTargetTriple());
   if (Freestanding)
     PMB.LibraryInfo->disableAllFunctions();
-  PMB.Inliner = createFunctionInliningPass();
+  PMB.Inliner = createFunctionInliningPass(1048576);
   // FIXME: should get it from the bitcode?
   PMB.OptLevel = OptLevel;
   PMB.LoopVectorize = true;
@@ -549,9 +549,9 @@ void ThinLTOCodeGenerator::addModule(StringRef Identifier, StringRef Data) {
   if (Modules.empty())
     initTMBuilder(TMBuilder, Triple(TheTriple));
   else if (TMBuilder.TheTriple != TheTriple) {
-    if (!TMBuilder.TheTriple.isCompatibleWith(TheTriple))
-      report_fatal_error("ThinLTO modules with incompatible triples not "
-                         "supported");
+    //if (!TMBuilder.TheTriple.isCompatibleWith(TheTriple))
+    //  report_fatal_error("ThinLTO modules with incompatible triples not "
+    //                     "supported");
     initTMBuilder(TMBuilder, Triple(TMBuilder.TheTriple.merge(TheTriple)));
   }
 
@@ -682,6 +682,9 @@ void ThinLTOCodeGenerator::crossModuleImport(Module &TheModule,
   auto &ImportList = ImportLists[TheModule.getModuleIdentifier()];
 
   crossImportIntoModule(TheModule, Index, ModuleMap, ImportList);
+
+  initTMBuilder(TMBuilder, Triple(TheModule.getTargetTriple()));
+  //optimizeModule(TheModule, *TMBuilder.create(), 0, Freestanding);
 }
 
 /**
