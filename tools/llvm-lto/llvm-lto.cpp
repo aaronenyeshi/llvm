@@ -98,6 +98,10 @@ static cl::opt<bool> EnableFreestanding(
     "lto-freestanding", cl::init(false),
     cl::desc("Enable Freestanding (disable builtins / TLI) during LTO"));
 
+static cl::opt<bool> EnableSelectAcceleratorCode(
+    "select-accelerator-code", cl::init(false),
+    cl::desc("Selects only code which is expected to be run by an accelerator"));
+
 static cl::opt<bool> EnableDeadCodeElimination(
     "dce", cl::init(false),
     cl::desc("Removes dead instructions"));
@@ -496,6 +500,7 @@ public:
     ThinGenerator.setTargetOptions(Options);
     ThinGenerator.setCacheDir(ThinLTOCacheDir);
     ThinGenerator.setCachePruningInterval(ThinLTOCachePruningInterval);
+    ThinGenerator.setSelectAcceleratorCode(EnableSelectAcceleratorCode);
     ThinGenerator.setDeadCodeElimination(EnableDeadCodeElimination);
     ThinGenerator.setGlobalDCE(EnableGlobalDCE);
     ThinGenerator.setAlwaysInline(EnableAlwaysInline);

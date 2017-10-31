@@ -45,6 +45,7 @@
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/VCSRevision.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/Transforms/HC/HC.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/FunctionImport.h"
@@ -253,7 +254,7 @@ static void optimizeModule2(Module &TheModule, TargetMachine &TM,
   PMB.LibraryInfo = new TargetLibraryInfoImpl(TM.getTargetTriple());
   if (Freestanding)
     PMB.LibraryInfo->disableAllFunctions();
-  PMB.Inliner = createFunctionInliningPass(1048576);
+  PMB.Inliner = createFunctionInliningPass();
   // FIXME: should get it from the bitcode?
   PMB.OptLevel = OptLevel;
   PMB.LoopVectorize = true;
@@ -267,6 +268,10 @@ static void optimizeModule2(Module &TheModule, TargetMachine &TM,
   // Add the TTI (required to inform the vectorizer about register size for
   // instance)
   PM.add(createTargetTransformInfoWrapperPass(TM.getTargetIRAnalysis()));
+
+  if (SelectAcceleratorCode) {
+    PM.add(createSelectAcceleratorCodePass());
+  }
 
   if (DeadCodeElimination) {
     PM.add(createDeadCodeEliminationPass());

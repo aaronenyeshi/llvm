@@ -214,6 +214,9 @@ public:
   /// assume builtins are present on the target.
   void setFreestanding(bool Enabled) { Freestanding = Enabled; }
 
+  /// Enable Select Accelerator Code
+  void setSelectAcceleratorCode(bool Enabled) { SelectAcceleratorCode = Enabled; }
+
   /// Enable Dead Code Elimination
   void setDeadCodeElimination(bool Enabled) { DeadCodeElimination = Enabled; }
 
@@ -351,6 +354,9 @@ private:
   /// Flag to indicate that the optimizer should not assume builtins are present
   /// on the target.
   bool Freestanding = false;
+
+  /// Flag to indicate that the optimizer should perform Select Accelerator Code pass
+  bool SelectAcceleratorCode = false;
 
   /// Flag to indicate that the optimizer should perform Dead Code Elimination pass
   bool DeadCodeElimination = false;

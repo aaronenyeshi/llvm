@@ -171,3 +171,7 @@ static RegisterPass<SelectAcceleratorCode> X{
     false,
     false};
 }
+
+ModulePass *llvm::createSelectAcceleratorCodePass() {
+  return new SelectAcceleratorCode();
+}
