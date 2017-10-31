@@ -173,3 +173,7 @@ namespace
         false,
         false};
 }
+
+ModulePass *llvm::createSelectAcceleratorCodePass() {
+  return new SelectAcceleratorCode();
+}

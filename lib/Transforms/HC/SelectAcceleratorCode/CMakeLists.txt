@@ -1,3 +1,10 @@
-add_llvm_loadable_module(LLVMSelectAcceleratorCode SelectAcceleratorCode.cpp)
+add_llvm_library(LLVMSelectAcceleratorCode
+  SelectAcceleratorCode.cpp
 
-add_dependencies(LLVMSelectAcceleratorCode intrinsics_gen)
+  ADDITIONAL_HEADER_DIRS
+  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms
+  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/HC
+
+  DEPENDS
+  intrinsics_gen
+  )
