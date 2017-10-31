@@ -15,7 +15,11 @@
 #ifndef LLVM_TRANSFORMS_HC_H
 #define LLVM_TRANSFORMS_HC_H
 
+#include <functional>
+
 namespace llvm {
+
+class ModulePass;
 
 /// Create a pass manager instance of a pass which selects only code which is
 /// expected to be run by an accelerator
