@@ -246,7 +246,7 @@ static void optimizeModule(Module &TheModule, TargetMachine &TM,
 }
 
 static void optimizeModule2(Module &TheModule, TargetMachine &TM,
-                           unsigned OptLevel, bool Freestanding,
+                           unsigned OptLevel, bool Freestanding, bool SelectAcceleratorCode,
                            bool DeadCodeElimination, bool GlobalDCE,
                            bool AlwaysInline, bool InferAddressSpaces) {
   // Populate the PassManager
@@ -944,7 +944,7 @@ void ThinLTOCodeGenerator::optllc() {
         saveTempBitcode(*TheModule, SaveTempsDir, count, ".0.original.bc");
 
         // Optimizations
-        optimizeModule2(*TheModule, *TMBuilder.create(), OptLevel, Freestanding,
+        optimizeModule2(*TheModule, *TMBuilder.create(), OptLevel, Freestanding, SelectAcceleratorCode,
                        DeadCodeElimination, GlobalDCE, AlwaysInline, InferAddressSpaces);
 
         // Save temps: optimized file.
