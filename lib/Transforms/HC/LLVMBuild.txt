@@ -1,4 +1,4 @@
-;===- ./lib/Transforms/LLVMBuild.txt ---------------------------*- Conf -*--===;
+;===- ./lib/Transforms/HC/LLVMBuild.txt -----------------------*- Conf -*--===;
 ;
 ;                     The LLVM Compiler Infrastructure
 ;
@@ -15,10 +15,9 @@
 ;
 ;===------------------------------------------------------------------------===;
 
-[common]
-subdirectories = Coroutines IPO InstCombine Instrumentation Scalar Utils Vectorize ObjCARC HC
-
 [component_0]
-type = Group
-name = Transforms
-parent = Libraries
+type = Library
+name = HC
+parent = Transforms
+library_name = HC
+required_libraries = Analysis Core Support TransformUtils
