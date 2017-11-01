@@ -6,10 +6,10 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
-///
-/// \file
-/// Provides passes to HC specific target
-///
+//
+// This header file defines prototypes for accessor functions that expose passes
+// in the HC transformations library.
+//
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_TRANSFORMS_HC_H
@@ -18,12 +18,12 @@
 #include <functional>
 
 namespace llvm {
-
 class ModulePass;
 
 /// Create a pass manager instance of a pass which selects only code which is
 /// expected to be run by an accelerator
 ModulePass *createSelectAcceleratorCodePass();
+extern char &SelectAcceleratorCodeID;
 
 }
 
