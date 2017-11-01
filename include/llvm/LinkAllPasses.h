@@ -39,7 +39,6 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/Support/Valgrind.h"
-#include "llvm/Transforms/HC.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
@@ -208,7 +207,6 @@ namespace {
       (void) llvm::createFloat2IntPass();
       (void) llvm::createEliminateAvailableExternallyPass();
       (void) llvm::createScalarizeMaskedMemIntrinPass();
-      (void) llvm::createSelectAcceleratorCodePass();
 
       (void)new llvm::IntervalPartition();
       (void)new llvm::ScalarEvolutionWrapperPass();
