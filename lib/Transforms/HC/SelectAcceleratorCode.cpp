@@ -25,9 +25,11 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/HC/HC.h"
+#include "llvm/Transforms/HC.h"
 
 #include <algorithm>
+
+#define DEBUG_TYPE "select-accelerator-code"
 
 using namespace llvm;
 
@@ -163,15 +165,21 @@ public:
         return false;
     }
 };
+}
 char SelectAcceleratorCode::ID = 0;
 
-static RegisterPass<SelectAcceleratorCode> X{
-    "select-accelerator-code",
-    "Selects only the code that is expected to run on an accelerator, "
-    "ensuring that it can be lowered by AMDGPU.",
-    false,
-    false};
+/*    static RegisterPass<SelectAcceleratorCode> X{
+        "select-accelerator-code",
+        "Selects only the code that is expected to run on an accelerator, "
+        "ensuring that it can be lowered by AMDGPU.",
+        false,
+        false};*/
+namespace llvm {
+void initializeSelectAcceleratorCodePass(PassRegistry &);
 }
+
+INITIALIZE_PASS(SelectAcceleratorCode, DEBUG_TYPE, "Select Accelerator Code",
+                false, false)
 
 ModulePass *llvm::createSelectAcceleratorCodePass() {
   return new SelectAcceleratorCode();
