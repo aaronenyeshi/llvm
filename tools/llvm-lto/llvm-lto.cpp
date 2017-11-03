@@ -118,6 +118,10 @@ static cl::opt<bool> EnableInferAddressSpaces(
     "infer-address-spaces", cl::init(false),
     cl::desc("Propagates address spaces from type-qualified variable declarations"));
 
+static cl::opt<bool> EnableISAAssemblyFile(
+    "dump-isa", cl::init(false),
+    cl::desc("Emit ISA assembly file instead of binary"));
+
 static cl::opt<bool> UseDiagnosticHandler(
     "use-diagnostic-handler", cl::init(false),
     cl::desc("Use a diagnostic handler to test the handler interface"));
@@ -502,6 +506,7 @@ public:
     ThinGenerator.setAlwaysInline(EnableAlwaysInline);
     ThinGenerator.setFreestanding(EnableFreestanding);
     ThinGenerator.setInferAddressSpaces(EnableInferAddressSpaces);
+    ThinGenerator.setEnableISAAssemblyFile(EnableISAAssemblyFile);
 
     unsigned OLvl = 3;
     switch (OptLevel) {
@@ -790,11 +795,15 @@ private:
                          "of inputs");
 
     for (unsigned BufID = 0; BufID < Binaries.size(); ++BufID) {
-      auto OutputName = InputFilenames[BufID] + ".thinlto.isabin";
-      auto OutputISAName = InputFilenames[BufID] + ".thinlto.isa";
       std::error_code EC;
-      raw_fd_ostream OS(OutputName, EC, sys::fs::OpenFlags::F_None);
-      raw_fd_ostream OS(OutputISAName, EC, sys::fs::OpenFlags::F_None | sys::fs::OpenFlags::F_Text);
+      sys::fs::OpenFlags OpenFlags = sys::fs::F_None;
+      auto OutputName = InputFilenames[BufID] + ".thinlto.isabin";
+      if (EnableISAAssemblyFile){
+        OutputName.clear();
+        OutputName = InputFilenames[BufID] + ".thinlto.isa";
+        OpenFlags |= sys::fs::F_Text;
+      }
+      raw_fd_ostream OS(OutputName, EC, OpenFlags);
       error(EC, "error opening the file '" + OutputName + "'");
       OS << Binaries[BufID]->getBuffer();
     }

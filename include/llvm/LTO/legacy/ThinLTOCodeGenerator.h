@@ -224,6 +224,9 @@ public:
   /// Enable Infer Address Space
   void setInferAddressSpaces(bool Enabled) { InferAddressSpaces = Enabled; }
 
+  /// Enable ISA Assembly File Output
+  void setEnableISAAssemblyFile(bool Enabled) {EnableISAAssemblyFile = Enabled; }
+
   /// CodeModel
   void setCodePICModel(Optional<Reloc::Model> Model) {
     TMBuilder.RelocModel = Model;
@@ -364,6 +367,9 @@ private:
 
   /// Flag to indicate that the optimizer should perform Infer Address Spaces pass
   bool InferAddressSpaces = false;
+
+  /// Flag to indicate that the CodeGen should emit Assembly File
+  bool EnableISAAssemblyFile = false;
 
   /// IR Optimization Level [0-3].
   unsigned OptLevel = 3;

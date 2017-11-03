@@ -307,7 +307,8 @@ computeGUIDPreservedSymbols(const StringSet<> &PreservedSymbols,
 }
 
 std::unique_ptr<MemoryBuffer> codegenModule(Module &TheModule,
-                                            TargetMachine &TM) {
+                                            TargetMachine &TM,
+                                            bool EnableISAAssemblyFile) {
   SmallVector<char, 128> OutputBuffer;
 
   // CodeGen
@@ -319,8 +320,12 @@ std::unique_ptr<MemoryBuffer> codegenModule(Module &TheModule,
     // the ObjCARCContractPass must be run, so do it unconditionally here.
     PM.add(createObjCARCContractPass());
 
+    TargetMachine::CodeGenFileType EmitType = TargetMachine::CGFT_ObjectFile;
+    if (EnableISAAssemblyFile)
+      EmitType = TargetMachine::CGFT_AssemblyFile;
+
     // Setup the codegen now.
-    if (TM.addPassesToEmitFile(PM, OS, TargetMachine::CGFT_ObjectFile,
+    if (TM.addPassesToEmitFile(PM, OS, EmitType,
                                /* DisableVerify */ true))
       report_fatal_error("Failed to setup codegen");
 
@@ -534,7 +539,7 @@ ProcessThinLTOModule(Module &TheModule, ModuleSummaryIndex &Index,
     return make_unique<ObjectMemoryBuffer>(std::move(OutputBuffer));
   }
 
-  return codegenModule(TheModule, TM);
+  return codegenModule(TheModule, TM, false);
 }
 
 /// Resolve LinkOnce/Weak symbols. Record resolutions in the \p ResolvedODR map
@@ -841,7 +846,7 @@ void ThinLTOCodeGenerator::optimize(Module &TheModule) {
  */
 std::unique_ptr<MemoryBuffer> ThinLTOCodeGenerator::codegen(Module &TheModule) {
   initTMBuilder(TMBuilder, Triple(TheModule.getTargetTriple()));
-  return codegenModule(TheModule, *TMBuilder.create());
+  return codegenModule(TheModule, *TMBuilder.create(), EnableISAAssemblyFile);
 }
 
 /// Write out the generated object file, either from CacheEntryPath or from
@@ -951,7 +956,7 @@ void ThinLTOCodeGenerator::optllc() {
         saveTempBitcode(*TheModule, SaveTempsDir, count, ".1.opt.bc");
 
         // CodeGen
-        auto OutputBuffer = codegenModule(*TheModule, *TMBuilder.create());
+        auto OutputBuffer = codegenModule(*TheModule, *TMBuilder.create(), EnableISAAssemblyFile);
         if (SavedObjectsDirectoryPath.empty()) {
           ProducedBinaries[count] = std::move(OutputBuffer);
         }
