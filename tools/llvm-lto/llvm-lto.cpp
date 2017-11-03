@@ -791,8 +791,10 @@ private:
 
     for (unsigned BufID = 0; BufID < Binaries.size(); ++BufID) {
       auto OutputName = InputFilenames[BufID] + ".thinlto.isabin";
+      auto OutputISAName = InputFilenames[BufID] + ".thinlto.isa";
       std::error_code EC;
       raw_fd_ostream OS(OutputName, EC, sys::fs::OpenFlags::F_None);
+      raw_fd_ostream OS(OutputISAName, EC, sys::fs::OpenFlags::F_None | sys::fs::OpenFlags::F_Text);
       error(EC, "error opening the file '" + OutputName + "'");
       OS << Binaries[BufID]->getBuffer();
     }
