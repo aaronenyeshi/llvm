@@ -500,6 +500,11 @@ public:
     ThinGenerator.setTargetOptions(Options);
     ThinGenerator.setCacheDir(ThinLTOCacheDir);
     ThinGenerator.setCachePruningInterval(ThinLTOCachePruningInterval);
+    ThinGenerator.setCpu(getCPUStr());
+    ThinGenerator.setFeatures(getFeaturesStr());
+    ThinGenerator.setCodeModel(getCodeModel());
+
+    ThinGenerator.setSelectAcceleratorCode(EnableSelectAcceleratorCode);
     ThinGenerator.setDeadCodeElimination(EnableDeadCodeElimination);
     ThinGenerator.setGlobalDCE(EnableGlobalDCE);
     ThinGenerator.setAlwaysInline(EnableAlwaysInline);
