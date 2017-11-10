@@ -634,14 +634,19 @@ std::unique_ptr<TargetMachine> TargetMachineBuilder::create() const {
     report_fatal_error("Can't load target for this Triple: " + ErrMsg);
   }
 
+  std::string FeatureStr;
   // Use MAttr as the default set of features.
-  SubtargetFeatures Features(MAttr);
-  Features.getDefaultSubtargetFeatures(TheTriple);
-  std::string FeatureStr = Features.getString();
+  if (!FeaturesStr.empty())
+    FeatureStr = FeaturesStr;
+  else {
+    SubtargetFeatures Features(MAttr);
+    Features.getDefaultSubtargetFeatures(TheTriple);
+    FeatureStr = Features.getString();
+  }
 
   return std::unique_ptr<TargetMachine>(
       TheTarget->createTargetMachine(TheTriple.str(), MCpu, FeatureStr, Options,
-                                     RelocModel, None, CGOptLevel));
+                                     RelocModel, CodeModel, CGOptLevel));
 }
 
 /**
