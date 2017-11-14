@@ -254,7 +254,7 @@ static void optimizeModule2(Module &TheModule, TargetMachine &TM,
   PMB.LibraryInfo = new TargetLibraryInfoImpl(TM.getTargetTriple());
   if (Freestanding)
     PMB.LibraryInfo->disableAllFunctions();
-  PMB.Inliner = createFunctionInliningPass();
+  PMB.Inliner = createFunctionInliningPass(1048576);
   // FIXME: should get it from the bitcode?
   PMB.OptLevel = OptLevel;
   PMB.LoopVectorize = true;
