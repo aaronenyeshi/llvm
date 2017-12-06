@@ -23,6 +23,7 @@
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/Bitcode/BitcodeWriterPass.h"
+#include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/ExecutionEngine/ObjectMemoryBuffer.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
@@ -249,7 +250,7 @@ static void optimizeModule2(Module &TheModule, TargetMachine &TM,
                            unsigned OptLevel, bool Freestanding, bool SelectAcceleratorCode,
                            bool DeadCodeElimination, bool GlobalDCE,
                            bool AlwaysInline, bool InferAddressSpaces) {
-  // Populate the PassManager
+  // Populate the PassManagerBuilder
   PassManagerBuilder PMB;
   PMB.LibraryInfo = new TargetLibraryInfoImpl(TM.getTargetTriple());
   if (Freestanding)
@@ -262,12 +263,23 @@ static void optimizeModule2(Module &TheModule, TargetMachine &TM,
   // Already did this in verifyLoadedModule().
   PMB.VerifyInput = false;
   PMB.VerifyOutput = false;
+  TM.adjustPassManager(PMB);
 
+  // Populate the FunctionPassManager
+  std::unique_ptr<legacy::FunctionPassManager> FPM;
+  FPM.reset(new legacy::FunctionPassManager(&TheModule));
+  FPM->add(createTargetTransformInfoWrapperPass(TM.getTargetIRAnalysis()));
+  FPM->add(createVerifierPass());
+
+  // Pass Manager
   legacy::PassManager PM;
-
   // Add the TTI (required to inform the vectorizer about register size for
   // instance)
   PM.add(createTargetTransformInfoWrapperPass(TM.getTargetIRAnalysis()));
+
+  auto &LTM = static_cast<LLVMTargetMachine &>(TM);
+  Pass *TPC = LTM.createPassConfig(PM);
+  PM.add(TPC);
 
   if (SelectAcceleratorCode) {
     PM.add(createSelectAcceleratorCodePass());
@@ -286,8 +298,14 @@ static void optimizeModule2(Module &TheModule, TargetMachine &TM,
     PM.add(createInferAddressSpacesPass());
   }
 
-  // Add optimizations
+  // Add optimizations to Builder, then add to PassManager
+  PMB.populateFunctionPassManager(*FPM);
   PMB.populateModulePassManager(PM);
+
+  FPM->doInitialization();
+  for (Function &F : TheModule)
+    FPM->run(F);
+  FPM->doFinalization();
 
   PM.run(TheModule);
 }
@@ -881,6 +899,24 @@ static std::string writeGeneratedObject(int count, StringRef CacheEntryPath,
   return OutputPath.str();
 }
 
+static inline void setFunctionAttributes(StringRef CPU, StringRef Features,
+                                         Module &M) {
+  for (auto &F : M) {
+    auto &Ctx = F.getContext();
+    AttributeList Attrs = F.getAttributes();
+    AttrBuilder NewAttrs;
+
+    if (!CPU.empty())
+      NewAttrs.addAttribute("target-cpu", CPU);
+    if (!Features.empty())
+      NewAttrs.addAttribute("target-features", Features);
+
+    // Let NewAttrs override Attrs.
+    F.setAttributes(
+        Attrs.addAttributes(Ctx, AttributeList::FunctionIndex, NewAttrs));
+  }
+}
+
 /**
  * Perform ThinLTO Optimizations and CodeGen.
  */
@@ -943,6 +979,7 @@ void ThinLTOCodeGenerator::optllc() {
         // Save temps: original file.
         saveTempBitcode(*TheModule, SaveTempsDir, count, ".0.original.bc");
 
+        setFunctionAttributes(TMBuilder.MCpu, TMBuilder.FeaturesStr, *TheModule);
         // Optimizations
         optimizeModule2(*TheModule, *TMBuilder.create(), OptLevel, Freestanding, SelectAcceleratorCode,
                        DeadCodeElimination, GlobalDCE, AlwaysInline, InferAddressSpaces);
