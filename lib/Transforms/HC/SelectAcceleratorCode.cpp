@@ -165,14 +165,11 @@ public:
         return false;
     }
 };
-char SelectAcceleratorCode::ID = 0;
 
-/*    static RegisterPass<SelectAcceleratorCode> X{
-        "select-accelerator-code",
-        "Selects only the code that is expected to run on an accelerator, "
-        "ensuring that it can be lowered by AMDGPU.",
-        false,
-        false};*/
+char SelectAcceleratorCode::ID = 0;
+static RegisterPass<SelectAcceleratorCode> X{
+  "select-accelerator-code", "Select Accelerator Code", false, false};
+
 }
 namespace llvm {
 void initializeSelectAcceleratorCodePass(PassRegistry &);
