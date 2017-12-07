@@ -336,7 +336,8 @@ std::unique_ptr<MemoryBuffer> codegenModule(Module &TheModule,
 
     // If the bitcode files contain ARC code and were compiled with optimization,
     // the ObjCARCContractPass must be run, so do it unconditionally here.
-    PM.add(createObjCARCContractPass());
+    if (TM.getTargetTriple().str() != "amdgcn--amdhsa-amdgiz")
+      PM.add(createObjCARCContractPass());
 
     TargetMachine::CodeGenFileType EmitType = TargetMachine::CGFT_ObjectFile;
     if (EnableISAAssemblyFile)
