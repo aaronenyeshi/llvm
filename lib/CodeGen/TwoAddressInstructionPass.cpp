@@ -110,6 +110,10 @@ class TwoAddressInstructionPass : public MachineFunctionPass {
   // Set of already processed instructions in the current block.
   SmallPtrSet<MachineInstr*, 8> Processed;
 
+  // Set of instructions converted to three-address by target and then sunk
+  // down current basic block.
+  SmallPtrSet<MachineInstr*, 8> SunkInstrs;
+
   // A map from virtual registers to physical registers which are likely targets
   // to be coalesced to due to copies from physical registers to virtual
   // registers. e.g. v1024 = move r0.
@@ -589,23 +593,23 @@ isProfitableToCommute(unsigned regA, unsigned regB, unsigned regC,
   // e.g.
   // %reg1028<def> = EXTRACT_SUBREG %reg1027<kill>, 1
   // %reg1029<def> = MOV8rr %reg1028
-  // %reg1029<def> = SHR8ri %reg1029, 7, %EFLAGS<imp-def,dead>
+  // %reg1029<def> = SHR8ri %reg1029, 7, %eflags<imp-def,dead>
   // insert => %reg1030<def> = MOV8rr %reg1028
-  // %reg1030<def> = ADD8rr %reg1028<kill>, %reg1029<kill>, %EFLAGS<imp-def,dead>
+  // %reg1030<def> = ADD8rr %reg1028<kill>, %reg1029<kill>, %eflags<imp-def,dead>
   // In this case, it might not be possible to coalesce the second MOV8rr
   // instruction if the first one is coalesced. So it would be profitable to
   // commute it:
   // %reg1028<def> = EXTRACT_SUBREG %reg1027<kill>, 1
   // %reg1029<def> = MOV8rr %reg1028
-  // %reg1029<def> = SHR8ri %reg1029, 7, %EFLAGS<imp-def,dead>
+  // %reg1029<def> = SHR8ri %reg1029, 7, %eflags<imp-def,dead>
   // insert => %reg1030<def> = MOV8rr %reg1029
-  // %reg1030<def> = ADD8rr %reg1029<kill>, %reg1028<kill>, %EFLAGS<imp-def,dead>
+  // %reg1030<def> = ADD8rr %reg1029<kill>, %reg1028<kill>, %eflags<imp-def,dead>
 
   if (!isPlainlyKilled(MI, regC, LIS))
     return false;
 
   // Ok, we have something like:
-  // %reg1030<def> = ADD8rr %reg1028<kill>, %reg1029<kill>, %EFLAGS<imp-def,dead>
+  // %reg1030<def> = ADD8rr %reg1028<kill>, %reg1029<kill>, %eflags<imp-def,dead>
   // let's see if it's worth commuting it.
 
   // Look for situations like this:
@@ -756,6 +760,8 @@ TwoAddressInstructionPass::convertInstTo3Addr(MachineBasicBlock::iterator &mi,
     mi = NewMI;
     nmi = std::next(mi);
   }
+  else
+    SunkInstrs.insert(NewMI);
 
   // Update source and destination register maps.
   SrcRegMap.erase(RegA);
@@ -1655,6 +1661,10 @@ bool TwoAddressInstructionPass::runOnMachineFunction(MachineFunction &Func) {
   else
     AA = nullptr;
   OptLevel = TM.getOptLevel();
+  // Disable optimizations if requested. We cannot skip the whole pass as some
+  // fixups are necessary for correctness.
+  if (skipFunction(*Func.getFunction()))
+    OptLevel = CodeGenOpt::None;
 
   bool MadeChange = false;
 
@@ -1674,10 +1684,13 @@ bool TwoAddressInstructionPass::runOnMachineFunction(MachineFunction &Func) {
     SrcRegMap.clear();
     DstRegMap.clear();
     Processed.clear();
+    SunkInstrs.clear();
     for (MachineBasicBlock::iterator mi = MBB->begin(), me = MBB->end();
          mi != me; ) {
       MachineBasicBlock::iterator nmi = std::next(mi);
-      if (mi->isDebugValue()) {
+      // Don't revisit an instruction previously converted by target. It may
+      // contain undef register operands (%noreg), which are not handled.
+      if (mi->isDebugValue() || SunkInstrs.count(&*mi)) {
         mi = nmi;
         continue;
       }
