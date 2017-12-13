@@ -19,6 +19,12 @@ def FeatureFP64 : SubtargetFeature<"fp64",
   "Enable double precision operations"
 >;
 
+def FeatureFMA : SubtargetFeature<"fmaf",
+  "FMA",
+  "true",
+  "Enable single precision FMA (not as fast as mul+add, but fused)"
+>;
+
 def FeatureFastFMAF32 : SubtargetFeature<"fast-fmaf",
   "FastFMAF32",
   "true",
@@ -720,6 +726,10 @@ def HasFlatScratchInsts : Predicate<"Subtarget->hasFlatScratchInsts()">,
   AssemblerPredicate<"FeatureFlatScratchInsts">;
 def HasD16LoadStore : Predicate<"Subtarget->hasD16LoadStore()">,
   AssemblerPredicate<"FeatureGFX9Insts">;
+
+
+def LDSRequiresM0Init : Predicate<"Subtarget->ldsRequiresM0Init()">;
+def NotLDSRequiresM0Init : Predicate<"!Subtarget->ldsRequiresM0Init()">;
 
 def HasDSAddTid : Predicate<"Subtarget->getGeneration() >= AMDGPUSubtarget::GFX9">,
   AssemblerPredicate<"FeatureGFX9Insts">;
