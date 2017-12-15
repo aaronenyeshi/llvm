@@ -214,20 +214,8 @@ public:
   /// assume builtins are present on the target.
   void setFreestanding(bool Enabled) { Freestanding = Enabled; }
 
-  /// Enable Select Accelerator Code
-  void setSelectAcceleratorCode(bool Enabled) { SelectAcceleratorCode = Enabled; }
-
-  /// Enable Dead Code Elimination
-  void setDeadCodeElimination(bool Enabled) { DeadCodeElimination = Enabled; }
-
-  /// Enable Global DCE
-  void setGlobalDCE(bool Enabled) { GlobalDCE = Enabled; }
-
-  /// Enable Always Inline
-  void setAlwaysInline(bool Enabled) { AlwaysInline = Enabled; }
-
-  /// Enable Infer Address Space
-  void setInferAddressSpaces(bool Enabled) { InferAddressSpaces = Enabled; }
+  /// Enable list of explicit Opt passes
+  void setPassList(std::vector<const llvm::PassInfo*> PL) { PassList = PL; }
 
   /// Enable ISA Assembly File Output
   void setEnableISAAssemblyFile(bool Enabled) {EnableISAAssemblyFile = Enabled; }
@@ -363,20 +351,8 @@ private:
   /// on the target.
   bool Freestanding = false;
 
-  /// Flag to indicate that the optimizer should perform Select Accelerator Code pass
-  bool SelectAcceleratorCode = false;
-
-  /// Flag to indicate that the optimizer should perform Dead Code Elimination pass
-  bool DeadCodeElimination = false;
-
-  /// Flag to indicate that the optimizer should perform Global DCE pass
-  bool GlobalDCE = false;
-
-  /// Flag to indicate that the optimizer should perform Always Inliner pass
-  bool AlwaysInline = false;
-
-  /// Flag to indicate that the optimizer should perform Infer Address Spaces pass
-  bool InferAddressSpaces = false;
+  /// Vector of explicitly enabled passes for optimization
+  std::vector<const llvm::PassInfo*> PassList;
 
   /// Flag to indicate that the CodeGen should emit Assembly File
   bool EnableISAAssemblyFile = false;

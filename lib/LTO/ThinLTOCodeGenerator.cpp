@@ -46,7 +46,6 @@
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/VCSRevision.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Transforms/HC.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/FunctionImport.h"
@@ -246,10 +245,9 @@ static void optimizeModule(Module &TheModule, TargetMachine &TM,
   PM.run(TheModule);
 }
 
-static void optimizeModule2(Module &TheModule, TargetMachine &TM,
-                           unsigned OptLevel, bool Freestanding, bool SelectAcceleratorCode,
-                           bool DeadCodeElimination, bool GlobalDCE,
-                           bool AlwaysInline, bool InferAddressSpaces) {
+static void optimizeModulePasses(Module &TheModule, TargetMachine &TM,
+                           unsigned OptLevel, bool Freestanding,
+                           std::vector<const llvm::PassInfo*> PassList) {
   // Populate the PassManagerBuilder
   PassManagerBuilder PMB;
   PMB.LibraryInfo = new TargetLibraryInfoImpl(TM.getTargetTriple());
@@ -281,21 +279,17 @@ static void optimizeModule2(Module &TheModule, TargetMachine &TM,
   Pass *TPC = LTM.createPassConfig(PM);
   PM.add(TPC);
 
-  if (SelectAcceleratorCode) {
-    PM.add(createSelectAcceleratorCodePass());
-  }
-
-  if (DeadCodeElimination) {
-    PM.add(createDeadCodeEliminationPass());
-  }
-  if (GlobalDCE){
-    PM.add(createGlobalDCEPass());
-  }
-  if (AlwaysInline){
-    PM.add(createAlwaysInlinerLegacyPass(AlwaysInline));
-  }
-  if (InferAddressSpaces) {
-    PM.add(createInferAddressSpacesPass());
+  for (unsigned i = 0; i < PassList.size(); ++i) {
+    const PassInfo *PassInf = PassList[i];
+    Pass *P = nullptr;
+    if (PassInf->getNormalCtor())
+      P = PassInf->getNormalCtor()();
+    else
+      errs() << "hcc-ThinLTO: cannot create pass: "
+             << PassInf->getPassName() << "\n";
+    if (P) {
+      PM.add(P);
+    }
   }
 
   // Add optimizations to Builder, then add to PassManager
@@ -992,8 +986,7 @@ void ThinLTOCodeGenerator::optllc() {
 
         setFunctionAttributes(TMBuilder.MCpu, TMBuilder.FeaturesStr, *TheModule);
         // Optimizations
-        optimizeModule2(*TheModule, *TMBuilder.create(), OptLevel, Freestanding, SelectAcceleratorCode,
-                       DeadCodeElimination, GlobalDCE, AlwaysInline, InferAddressSpaces);
+        optimizeModulePasses(*TheModule, *TMBuilder.create(), OptLevel, Freestanding, PassList);
 
         // Save temps: optimized file.
         saveTempBitcode(*TheModule, SaveTempsDir, count, ".1.opt.bc");

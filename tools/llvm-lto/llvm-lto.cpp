@@ -25,11 +25,15 @@
 #include "llvm/CodeGen/CommandFlags.def"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
+#include "llvm/IR/LegacyPassNameParser.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/ModuleSummaryIndex.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/IRReader/IRReader.h"
+#include "llvm/InitializePasses.h"
+#include "llvm/LinkAllIR.h"
+#include "llvm/LinkAllPasses.h"
 #include "llvm/LTO/legacy/LTOCodeGenerator.h"
 #include "llvm/LTO/legacy/LTOModule.h"
 #include "llvm/LTO/legacy/ThinLTOCodeGenerator.h"
@@ -43,6 +47,7 @@
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
+#include "llvm/Support/PluginLoader.h"
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/Signals.h"
 #include "llvm/Support/SourceMgr.h"
@@ -64,6 +69,12 @@
 #include <vector>
 
 using namespace llvm;
+
+// The OptimizationList is automatically populated with registered Passes by the
+// PassNameParser.
+//
+static cl::list<const PassInfo*, bool, PassNameParser>
+    PassList(cl::desc("Optimizations available:"));
 
 static cl::opt<char>
     OptLevel("O", cl::desc("Optimization level. [-O0, -O1, -O2, or -O3] "
@@ -97,26 +108,6 @@ static cl::opt<bool> DisableLTOVectorization(
 static cl::opt<bool> EnableFreestanding(
     "lto-freestanding", cl::init(false),
     cl::desc("Enable Freestanding (disable builtins / TLI) during LTO"));
-
-static cl::opt<bool> EnableSelectAcceleratorCode(
-    "select-accelerator-code", cl::init(false),
-    cl::desc("Selects only code which is expected to be run by an accelerator"));
-
-static cl::opt<bool> EnableDeadCodeElimination(
-    "dce", cl::init(false),
-    cl::desc("Removes dead instructions"));
-
-static cl::opt<bool> EnableGlobalDCE(
-    "globaldce", cl::init(false),
-    cl::desc("Eliminate unreachable internal globals (functions or global variables)"));
-
-static cl::opt<bool> EnableAlwaysInline(
-    "always-inline", cl::init(false),
-    cl::desc("Inline and remove functions marked as always_inline"));
-
-static cl::opt<bool> EnableInferAddressSpaces(
-    "infer-address-spaces", cl::init(false),
-    cl::desc("Propagates address spaces from type-qualified variable declarations"));
 
 static cl::opt<bool> EnableISAAssemblyFile(
     "dump-isa", cl::init(false),
@@ -504,12 +495,8 @@ public:
     ThinGenerator.setFeatures(getFeaturesStr());
     ThinGenerator.setCodeModel(getCodeModel());
 
-    ThinGenerator.setSelectAcceleratorCode(EnableSelectAcceleratorCode);
-    ThinGenerator.setDeadCodeElimination(EnableDeadCodeElimination);
-    ThinGenerator.setGlobalDCE(EnableGlobalDCE);
-    ThinGenerator.setAlwaysInline(EnableAlwaysInline);
+    ThinGenerator.setPassList(PassList);
     ThinGenerator.setFreestanding(EnableFreestanding);
-    ThinGenerator.setInferAddressSpaces(EnableInferAddressSpaces);
     ThinGenerator.setEnableISAAssemblyFile(EnableISAAssemblyFile);
 
     unsigned OLvl = 3;
@@ -906,7 +893,7 @@ int main(int argc, char **argv) {
   PrettyStackTraceProgram X(argc, argv);
 
   llvm_shutdown_obj Y; // Call llvm_shutdown() on exit.
-  cl::ParseCommandLineOptions(argc, argv, "llvm LTO linker\n");
+  //cl::ParseCommandLineOptions(argc, argv, "llvm LTO linker\n");
 
   if (OptLevel < '0' || OptLevel > '3')
     error("optimization level must be between 0 and 3");
@@ -916,6 +903,39 @@ int main(int argc, char **argv) {
   InitializeAllTargetMCs();
   InitializeAllAsmPrinters();
   InitializeAllAsmParsers();
+
+  // Initialize passes
+  PassRegistry &Registry = *PassRegistry::getPassRegistry();
+  initializeCore(Registry);
+  initializeScalarOpts(Registry);
+  initializeVectorization(Registry);
+  initializeIPO(Registry);
+  initializeAnalysis(Registry);
+  initializeTransformUtils(Registry);
+  initializeInstCombine(Registry);
+  initializeInstrumentation(Registry);
+  initializeTarget(Registry);
+  // For codegen passes, only passes that do IR to IR transformation are
+  // supported.
+  initializeExpandMemCmpPassPass(Registry);
+  initializeScalarizeMaskedMemIntrinPass(Registry);
+  initializeCodeGenPreparePass(Registry);
+  initializeAtomicExpandPass(Registry);
+  initializeRewriteSymbolsLegacyPassPass(Registry);
+  initializeWinEHPreparePass(Registry);
+  initializeDwarfEHPreparePass(Registry);
+  initializeSafeStackLegacyPassPass(Registry);
+  initializeSjLjEHPreparePass(Registry);
+  initializePreISelIntrinsicLoweringLegacyPassPass(Registry);
+  initializeGlobalMergePass(Registry);
+  initializeInterleavedAccessPass(Registry);
+  initializeEntryExitInstrumenterPass(Registry);
+  initializePostInlineEntryExitInstrumenterPass(Registry);
+  initializeUnreachableBlockElimLegacyPassPass(Registry);
+  initializeExpandReductionsPass(Registry);
+  initializeWriteBitcodePassPass(Registry);
+
+  cl::ParseCommandLineOptions(argc, argv, "llvm LTO linker\n");
 
   // set up the TargetOptions for the machine
   TargetOptions Options = InitTargetOptionsFromCodeGenFlags();
