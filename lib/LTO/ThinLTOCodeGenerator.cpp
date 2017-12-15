@@ -285,7 +285,7 @@ static void optimizeModulePasses(Module &TheModule, TargetMachine &TM,
     if (PassInf->getNormalCtor())
       P = PassInf->getNormalCtor()();
     else
-      errs() << "hcc-ThinLTO: cannot create pass: "
+      errs() << "ThinLTO: cannot create pass: "
              << PassInf->getPassName() << "\n";
     if (P) {
       PM.add(P);

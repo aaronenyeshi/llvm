@@ -28,8 +28,6 @@
 
 #include <algorithm>
 
-#define DEBUG_TYPE "select-accelerator-code"
-
 using namespace llvm;
 
 namespace {
@@ -164,19 +162,10 @@ public:
         return false;
     }
 };
-
 char SelectAcceleratorCode::ID = 0;
 static RegisterPass<SelectAcceleratorCode> X(
-  "select-accelerator-code", "Select Accelerator Code", false, false);
-
+    "select-accelerator-code",
+    "Select Accelerator Code",
+    false,
+    false);
 }
-/*namespace llvm {
-void initializeSelectAcceleratorCodePass(PassRegistry &);
-}
-
-INITIALIZE_PASS(SelectAcceleratorCode, DEBUG_TYPE, "Select Accelerator Code",
-                false, false)
-
-ModulePass *createSelectAcceleratorCodePass() {
-  return new SelectAcceleratorCode();
-}*/
