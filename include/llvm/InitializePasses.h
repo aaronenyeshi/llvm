@@ -34,9 +34,6 @@ void initializeObjCARCOpts(PassRegistry&);
 /// Initialize all passes linked into the Vectorize library.
 void initializeVectorization(PassRegistry&);
 
-/// Initialize all passes linked into the HC library.
-void initializeHC(PassRegistry&);
-
 /// Initialize all passes linked into the InstCombine library.
 void initializeInstCombine(PassRegistry&);
 
@@ -339,7 +336,6 @@ void initializeScalarizeMaskedMemIntrinPass(PassRegistry&);
 void initializeScalarizerPass(PassRegistry&);
 void initializeScavengerTestPass(PassRegistry&);
 void initializeScopedNoAliasAAWrapperPassPass(PassRegistry&);
-void initializeSelectAcceleratorCodePass(PassRegistry&);
 void initializeSeparateConstOffsetFromGEPPass(PassRegistry&);
 void initializeShadowStackGCLoweringPass(PassRegistry&);
 void initializeShrinkWrapPass(PassRegistry&);

@@ -3,7 +3,6 @@ set(LLVM_LINK_COMPONENTS
   BitReader
   BitWriter
   Core
-  HC
   IRReader
   LTO
   MC
@@ -12,10 +11,13 @@ set(LLVM_LINK_COMPONENTS
   Target
   )
 
+# Support plugins.
+set(LLVM_NO_DEAD_STRIP 1)
+
 add_llvm_tool(llvm-lto
   llvm-lto.cpp
 
   DEPENDS
   intrinsics_gen
   )
-
+export_executable_symbols(llvm-lto)

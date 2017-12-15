@@ -25,7 +25,6 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/HC.h"
 
 #include <algorithm>
 
@@ -167,17 +166,17 @@ public:
 };
 
 char SelectAcceleratorCode::ID = 0;
-static RegisterPass<SelectAcceleratorCode> X{
-  "select-accelerator-code", "Select Accelerator Code", false, false};
+static RegisterPass<SelectAcceleratorCode> X(
+  "select-accelerator-code", "Select Accelerator Code", false, false);
 
 }
-namespace llvm {
+/*namespace llvm {
 void initializeSelectAcceleratorCodePass(PassRegistry &);
 }
 
 INITIALIZE_PASS(SelectAcceleratorCode, DEBUG_TYPE, "Select Accelerator Code",
                 false, false)
 
-ModulePass *llvm::createSelectAcceleratorCodePass() {
+ModulePass *createSelectAcceleratorCodePass() {
   return new SelectAcceleratorCode();
-}
+}*/
