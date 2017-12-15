@@ -32,7 +32,6 @@
 #include "llvm/IR/Verifier.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/LinkAllIR.h"
 #include "llvm/LinkAllPasses.h"
 #include "llvm/LTO/legacy/LTOCodeGenerator.h"
 #include "llvm/LTO/legacy/LTOModule.h"
@@ -494,7 +493,6 @@ public:
     ThinGenerator.setCpu(getCPUStr());
     ThinGenerator.setFeatures(getFeaturesStr());
     ThinGenerator.setCodeModel(getCodeModel());
-
     ThinGenerator.setPassList(PassList);
     ThinGenerator.setFreestanding(EnableFreestanding);
     ThinGenerator.setEnableISAAssemblyFile(EnableISAAssemblyFile);
@@ -893,7 +891,6 @@ int main(int argc, char **argv) {
   PrettyStackTraceProgram X(argc, argv);
 
   llvm_shutdown_obj Y; // Call llvm_shutdown() on exit.
-  //cl::ParseCommandLineOptions(argc, argv, "llvm LTO linker\n");
 
   if (OptLevel < '0' || OptLevel > '3')
     error("optimization level must be between 0 and 3");
@@ -915,25 +912,6 @@ int main(int argc, char **argv) {
   initializeInstCombine(Registry);
   initializeInstrumentation(Registry);
   initializeTarget(Registry);
-  // For codegen passes, only passes that do IR to IR transformation are
-  // supported.
-  initializeExpandMemCmpPassPass(Registry);
-  initializeScalarizeMaskedMemIntrinPass(Registry);
-  initializeCodeGenPreparePass(Registry);
-  initializeAtomicExpandPass(Registry);
-  initializeRewriteSymbolsLegacyPassPass(Registry);
-  initializeWinEHPreparePass(Registry);
-  initializeDwarfEHPreparePass(Registry);
-  initializeSafeStackLegacyPassPass(Registry);
-  initializeSjLjEHPreparePass(Registry);
-  initializePreISelIntrinsicLoweringLegacyPassPass(Registry);
-  initializeGlobalMergePass(Registry);
-  initializeInterleavedAccessPass(Registry);
-  initializeEntryExitInstrumenterPass(Registry);
-  initializePostInlineEntryExitInstrumenterPass(Registry);
-  initializeUnreachableBlockElimLegacyPassPass(Registry);
-  initializeExpandReductionsPass(Registry);
-  initializeWriteBitcodePassPass(Registry);
 
   cl::ParseCommandLineOptions(argc, argv, "llvm LTO linker\n");
 
