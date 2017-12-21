@@ -536,6 +536,10 @@ public:
     return EndLoc;
   }
 
+  SMRange getLocRange() const {
+    return SMRange(StartLoc, EndLoc);
+  }
+
   Modifiers getModifiers() const {
     assert(isRegKind() || isImmTy(ImmTyNone));
     return isRegKind() ? Reg.Mods : Imm.Mods;
@@ -2244,6 +2248,9 @@ bool AMDGPUAsmParser::validateInstruction(const MCInst &Inst,
   return true;
 }
 
+static std::string AMDGPUMnemonicSpellCheck(StringRef S, uint64_t FBS,
+                                            unsigned VariantID = 0);
+
 bool AMDGPUAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
                                               OperandVector &Operands,
                                               MCStreamer &Out,
@@ -2286,8 +2293,13 @@ bool AMDGPUAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
   case Match_MissingFeature:
     return Error(IDLoc, "instruction not supported on this GPU");
 
-  case Match_MnemonicFail:
-    return Error(IDLoc, "unrecognized instruction mnemonic");
+  case Match_MnemonicFail: {
+    uint64_t FBS = ComputeAvailableFeatures(getSTI().getFeatureBits());
+    std::string Suggestion = AMDGPUMnemonicSpellCheck(
+        ((AMDGPUOperand &)*Operands[0]).getToken(), FBS);
+    return Error(IDLoc, "invalid instruction" + Suggestion,
+                 ((AMDGPUOperand &)*Operands[0]).getLocRange());
+  }
 
   case Match_InvalidOperand: {
     SMLoc ErrorLoc = IDLoc;
@@ -2578,6 +2590,25 @@ bool AMDGPUAsmParser::ParseDirective(AsmToken DirectiveID) {
 
 bool AMDGPUAsmParser::subtargetHasRegister(const MCRegisterInfo &MRI,
                                            unsigned RegNo) const {
+
+  for (MCRegAliasIterator R(AMDGPU::TTMP12_TTMP13_TTMP14_TTMP15, &MRI, true);
+       R.isValid(); ++R) {
+    if (*R == RegNo)
+      return isGFX9();
+  }
+
+  switch (RegNo) {
+  case AMDGPU::TBA:
+  case AMDGPU::TBA_LO:
+  case AMDGPU::TBA_HI:
+  case AMDGPU::TMA:
+  case AMDGPU::TMA_LO:
+  case AMDGPU::TMA_HI:
+    return !isGFX9();
+  default:
+    break;
+  }
+
   if (isCI())
     return true;
 
@@ -4767,6 +4798,7 @@ extern "C" void LLVMInitializeAMDGPUAsmParser() {
 
 #define GET_REGISTER_MATCHER
 #define GET_MATCHER_IMPLEMENTATION
+#define GET_MNEMONIC_SPELL_CHECKER
 #include "AMDGPUGenAsmMatcher.inc"
 
 // This fuction should be defined after auto-generated include so that we have

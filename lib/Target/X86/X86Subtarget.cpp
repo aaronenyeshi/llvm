@@ -22,8 +22,6 @@
 #include "llvm/ADT/Triple.h"
 #include "llvm/CodeGen/GlobalISel/CallLowering.h"
 #include "llvm/CodeGen/GlobalISel/InstructionSelect.h"
-#include "llvm/CodeGen/GlobalISel/Legalizer.h"
-#include "llvm/CodeGen/GlobalISel/RegBankSelect.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/Function.h"
@@ -35,8 +33,6 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
-#include <cassert>
-#include <string>
 
 #if defined(_MSC_VER)
 #include <intrin.h>
@@ -176,28 +172,6 @@ X86Subtarget::classifyGlobalFunctionReference(const GlobalValue *GV,
   }
 
   return X86II::MO_NO_FLAG;
-}
-
-/// This function returns the name of a function which has an interface like
-/// the non-standard bzero function, if such a function exists on the
-/// current subtarget and it is considered preferable over memset with zero
-/// passed as the second argument. Otherwise it returns null.
-const char *X86Subtarget::getBZeroEntry() const {
-  // Darwin 10 has a __bzero entry point for this purpose.
-  if (getTargetTriple().isMacOSX() &&
-      !getTargetTriple().isMacOSXVersionLT(10, 6))
-    return "__bzero";
-
-  return nullptr;
-}
-
-bool X86Subtarget::hasSinCos() const {
-  if (getTargetTriple().isMacOSX()) {
-    return !getTargetTriple().isMacOSXVersionLT(10, 9) && is64Bit();
-  } else if (getTargetTriple().isOSFuchsia()) {
-    return true;
-  }
-  return false;
 }
 
 /// Return true if the subtarget allows calls to immediate address.
@@ -346,6 +320,7 @@ void X86Subtarget::initializeEnvironment() {
   HasSSEUnalignedMem = false;
   HasCmpxchg16b = false;
   UseLeaForSP = false;
+  HasFastVariableShuffle = false;
   HasFastPartialYMMorZMMWrite = false;
   HasFastGather = false;
   HasFastScalarFSQRT = false;

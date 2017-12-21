@@ -92,6 +92,7 @@ extern "C" void LLVMInitializeARMTarget() {
   initializeARMConstantIslandsPass(Registry);
   initializeARMExecutionDepsFixPass(Registry);
   initializeARMExpandPseudoPass(Registry);
+  initializeThumb2SizeReducePass(Registry);
 }
 
 static std::unique_ptr<TargetLoweringObjectFile> createTLOF(const Triple &TT) {
@@ -385,7 +386,7 @@ void ARMPassConfig::addIRPasses() {
   // ldrex/strex loops to simplify this, but it needs tidying up.
   if (TM->getOptLevel() != CodeGenOpt::None && EnableAtomicTidy)
     addPass(createCFGSimplificationPass(
-        1, false, false, true, [this](const Function &F) {
+        1, false, false, true, true, [this](const Function &F) {
           const auto &ST = this->TM->getSubtarget<ARMSubtarget>(F);
           return ST.hasAnyDataBarrier() && !ST.isThumb1Only();
         }));
