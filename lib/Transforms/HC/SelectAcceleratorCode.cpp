@@ -165,7 +165,6 @@ public:
         return false;
     }
 };
-}
 char SelectAcceleratorCode::ID = 0;
 
     static RegisterPass<SelectAcceleratorCode> X{
