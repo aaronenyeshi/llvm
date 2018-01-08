@@ -256,8 +256,10 @@ static void optimizeModulePasses(Module &TheModule, TargetMachine &TM,
   PMB.Inliner = createFunctionInliningPass(1048576);
   // FIXME: should get it from the bitcode?
   PMB.OptLevel = OptLevel;
-  PMB.LoopVectorize = true;
-  PMB.SLPVectorize = true;
+  if (OptLevel != 0) {
+    PMB.LoopVectorize = true;
+    PMB.SLPVectorize = true;
+  }
   // Already did this in verifyLoadedModule().
   PMB.VerifyInput = false;
   PMB.VerifyOutput = false;
