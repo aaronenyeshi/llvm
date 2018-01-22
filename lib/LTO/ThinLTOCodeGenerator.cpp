@@ -939,6 +939,61 @@ void ThinLTOCodeGenerator::optllc() {
     ProducedBinaryFiles.resize(Modules.size());
   }
 
+  // Sequential linking phase
+  auto Index = linkCombinedIndex();
+
+  // Prepare the module map.
+  auto ModuleMap = generateModuleMap(Modules);
+  auto ModuleCount = Modules.size();
+
+  // Collect for each module the list of function it defines (GUID -> Summary).
+  StringMap<GVSummaryMapTy> ModuleToDefinedGVSummaries(ModuleCount);
+  Index->collectDefinedGVSummariesPerModule(ModuleToDefinedGVSummaries);
+
+  // Convert the preserved symbols set from string to GUID, this is needed for
+  // computing the caching hash and the internalization.
+  auto GUIDPreservedSymbols =
+      computeGUIDPreservedSymbols(PreservedSymbols, TMBuilder.TheTriple);
+
+  // Compute "dead" symbols, we don't want to import/export these!
+  computeDeadSymbols(*Index, GUIDPreservedSymbols);
+
+  // Collect the import/export lists for all modules from the call-graph in the
+  // combined index.
+  StringMap<FunctionImporter::ImportMapTy> ImportLists(ModuleCount);
+  StringMap<FunctionImporter::ExportSetTy> ExportLists(ModuleCount);
+  ComputeCrossModuleImport(*Index, ModuleToDefinedGVSummaries, ImportLists,
+                           ExportLists);
+
+  // We use a std::map here to be able to have a defined ordering when
+  // producing a hash for the cache entry.
+  // FIXME: we should be able to compute the caching hash for the entry based
+  // on the index, and nuke this map.
+  StringMap<std::map<GlobalValue::GUID, GlobalValue::LinkageTypes>> ResolvedODR;
+
+  // Resolve LinkOnce/Weak symbols, this has to be computed early because it
+  // impacts the caching.
+  resolveWeakForLinkerInIndex(*Index, ResolvedODR);
+
+  auto isExported = [&](StringRef ModuleIdentifier, GlobalValue::GUID GUID) {
+    const auto &ExportList = ExportLists.find(ModuleIdentifier);
+    return (ExportList != ExportLists.end() &&
+            ExportList->second.count(GUID)) ||
+           GUIDPreservedSymbols.count(GUID);
+  };
+
+  // Use global summary-based analysis to identify symbols that can be
+  // internalized (because they aren't exported or preserved as per callback).
+  // Changes are made in the index, consumed in the ThinLTO backends.
+  thinLTOInternalizeAndPromoteInIndex(*Index, isExported);
+
+  // Make sure that every module has an entry in the ExportLists and
+  // ResolvedODR maps to enable threaded access to these maps below.
+  for (auto &DefinedGVSummaries : ModuleToDefinedGVSummaries) {
+    ExportLists[DefinedGVSummaries.first()];
+    ResolvedODR[DefinedGVSummaries.first()];
+  }
+
   // Compute the ordering we will process the inputs: the rough heuristic here
   // is to sort them per size so that the largest module get schedule as soon as
   // possible. This is purely a compile-time optimization.
@@ -958,6 +1013,37 @@ void ThinLTOCodeGenerator::optllc() {
     for (auto IndexCount : ModulesOrdering) {
       auto &ModuleBuffer = Modules[IndexCount];
       Pool.async([&](int count) {
+        auto ModuleIdentifier = ModuleBuffer.getBufferIdentifier();
+        auto &ExportList = ExportLists[ModuleIdentifier];
+
+        auto &DefinedFunctions = ModuleToDefinedGVSummaries[ModuleIdentifier];
+
+        // The module may be cached, this helps handling it.
+        ModuleCacheEntry CacheEntry(CacheOptions.Path, *Index, ModuleIdentifier,
+                                    ImportLists[ModuleIdentifier], ExportList,
+                                    ResolvedODR[ModuleIdentifier],
+                                    DefinedFunctions, GUIDPreservedSymbols,
+                                    OptLevel, Freestanding, TMBuilder);
+        auto CacheEntryPath = CacheEntry.getEntryPath();
+
+        {
+          auto ErrOrBuffer = CacheEntry.tryLoadingBuffer();
+          DEBUG(dbgs() << "Cache " << (ErrOrBuffer ? "hit" : "miss") << " '"
+                       << CacheEntryPath << "' for buffer " << count << " "
+                       << ModuleIdentifier << "\n");
+
+          if (ErrOrBuffer) {
+            // Cache Hit!
+            if (SavedObjectsDirectoryPath.empty())
+              ProducedBinaries[count] = std::move(ErrOrBuffer.get());
+            else
+              ProducedBinaryFiles[count] = writeGeneratedObject(
+                  count, CacheEntryPath, SavedObjectsDirectoryPath,
+                  *ErrOrBuffer.get());
+            return;
+          }
+        }
+
         LLVMContext Context;
         Context.setDiscardValueNames(LTODiscardValueNames);
         Context.enableDebugTypeODRUniquing();
@@ -984,6 +1070,8 @@ void ThinLTOCodeGenerator::optllc() {
         // Save temps: original file.
         saveTempBitcode(*TheModule, SaveTempsDir, count, ".0.original.bc");
 
+        // Begin Processing ThinLTO Module
+
         setFunctionAttributes(TMBuilder.MCpu, TMBuilder.FeaturesStr, *TheModule);
         // Optimizations
         optimizeModulePasses(*TheModule, *TMBuilder.create(), OptLevel, Freestanding, PassList);
@@ -993,16 +1081,39 @@ void ThinLTOCodeGenerator::optllc() {
 
         // CodeGen
         auto OutputBuffer = codegenModule(*TheModule, *TMBuilder.create(), EnableISAAssemblyFile);
+
+        // Commit to the cache (if enabled)
+        CacheEntry.write(*OutputBuffer);
+
         if (SavedObjectsDirectoryPath.empty()) {
+          // We need to generated a memory buffer for the linker.
+          if (!CacheEntryPath.empty()) {
+            // Cache is enabled, reload from the cache
+            // We do this to lower memory pressuree: the buffer is on the heap
+            // and releasing it frees memory that can be used for the next input
+            // file. The final binary link will read from the VFS cache
+            // (hopefully!) or from disk if the memory pressure wasn't too high.
+            auto ReloadedBufferOrErr = CacheEntry.tryLoadingBuffer();
+            if (auto EC = ReloadedBufferOrErr.getError()) {
+              // On error, keeping the preexisting buffer and printing a
+              // diagnostic is more friendly than just crashing.
+              errs() << "error: can't reload cached file '" << CacheEntryPath
+                     << "': " << EC.message() << "\n";
+            } else {
+              OutputBuffer = std::move(*ReloadedBufferOrErr);
+            }
+          }
           ProducedBinaries[count] = std::move(OutputBuffer);
         }
         else {
-        ProducedBinaryFiles[count] = writeGeneratedObject(
-            count, "", SavedObjectsDirectoryPath, *OutputBuffer);
+          ProducedBinaryFiles[count] = writeGeneratedObject(
+              count, CacheEntryPath, SavedObjectsDirectoryPath, *OutputBuffer);
         }
       }, IndexCount);
     }
   }
+
+  pruneCache(CacheOptions.Path, CacheOptions.Policy);
 }
 
 // Main entry point for the ThinLTO processing
